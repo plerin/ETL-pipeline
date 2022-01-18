@@ -8,3 +8,5 @@ s3
 # airflow-data/creds/
 airflow-data/logs/
 mongo/
+test/
+data/
