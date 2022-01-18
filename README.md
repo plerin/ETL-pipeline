@@ -1,11 +1,12 @@
 <h1 align="center">Summary Project with ETL Pipeline</h1>
 
 <p align="center">
-    <a href="#about">About</a> •
+    <a href="#Goal">Goal</a> •
     <a href="#subject">Subject</a> •
     <a href="#Prerequisites">Prerequisites</a> •
-    <a href="#info">Info</a> •
-    <a href="#etl">ETL</a> •
+    <a href="#Dag">Dag</a> •
+    <a href="#Setting">Setting</a> •
+    <a href="#Trouble_shooting">Trouble_shooting</a>
 </p>
 
 ## Goal
@@ -39,7 +40,11 @@
 - MongoDB
 - Airflow
 
-## Dag `task`
+## Dag
+
+<br>
+
+### _Task_
 
 1. Task `getLastProcessedDate`
 
@@ -61,7 +66,9 @@
 
    Spark process
 
-## Process `sparkProcess.py`
+<br>
+
+### _Process_
 
 1. dag를 통해 SparkFiles 에 저장된 parsedData.csv를 읽는다.
 
@@ -71,7 +78,7 @@
 
 <br>
 
-## 과정
+## Setting
 
 <br>
 
@@ -85,39 +92,108 @@
 
 <br>
 
+### Airflow
+
+```yml
+version: "3"
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.0.1
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ""
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW_CONN_AWS_DEFAULT: aws://?profile=airflow-spark1&s3_config_file=/opt/airflow/creds/s3&s3_config_format=aws # aws 설정
+  volumes:
+    - ./airflow-data/creds:/opt/airflow/creds
+    - ./dags:/opt/airflow/dags
+    - ./sparkFiles:/opt/airflow/sparkFiles
+    - ./airflow-data/logs:/opt/airflow/logs
+    - ./airflow-data/plugins:/opt/airflow/plugins
+    - ./airflow-data/airflow.cfg:/opt/airlfow/airflow.cfg
+  user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - 8080:8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: always
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_UPGRADE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+
+volumes:
+  postgres-db-volume:
+
+networks:
+  default:
+    name: etl_02
+```
+
+<br>
+
 ### DB(MongoDB)
 
 compose with docker
 
 ```yml
-# 파일 규격 버전
 version: "3"
-# 이 항목 밑에 실행하려는 컨테이너 들을 정의
 services:
-  # 서비스 명
   mongodb:
-    # 사용할 이미지
     image: mongo
-    # 컨테이너 실행 시 재시작
     restart: always
-    # 컨테이너 이름 설정
     container_name: mongo_container
-    # 접근 포트 설정 (컨테이너 외부:컨테이너 내부)
     ports:
       - "27017:27017"
-    # -e 옵션
-    environment:
-      # MongoDB 계정 및 패스워드 설정 옵션
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: 1234
     volumes:
-      # -v 옵션 (다렉토리 마운트 설정)
       - etl_02_mongodb:/data/db
+    env_file:
+      - .env
 
 volumes:
   etl_02_mongodb:
 
-networks: # airflow와 같은 network
+networks:
   default:
     name: etl_02
 ```
