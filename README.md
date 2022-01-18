@@ -10,8 +10,6 @@
 
 ## Goal
 
-### `Github에 있는 ETL Project를 통해 아래와 같은 스택 습득 및 활용하기 위함 `
-
 1. CLOUD SaaS(Software-as-a-Service) 사용
 
    - AWS - S3 를 사용하며 Cloud 서비스 활용하기
@@ -43,23 +41,23 @@
 
 ## Dag `task`
 
-1. Task \_ getLastProcessedDate
+1. Task `getLastProcessedDate`
 
    DB 연결 및 마지막 수집 데이터 일자 반환(없으면 '2020-01-01')
 
-2. Task \_ getDate
+2. Task `getDate`
 
    1번 task가 일자를 반환하면 task(parseJsonFile) 아니면 task(endRun) 반환
 
-3. Task \_ parseJsonFile
+3. Task `parseJsonFile`
 
    S3에서 데이터 다운로드 & 파일을 읽고 필요한 정보만 Parsing & Parsing data 저장 & task_id(processParsedData) 반환 중간에 실패했을 경우 task_id(endRun)
 
-4. Task \_ saveToDB
+4. Task `saveToDB`
 
    Spark 처리한 결과 데이터(results.csv)를 읽고 mongoDB에 넣을 수 있도록 변환 후 저장(db=countyDiff) & results.csv 파일 삭제
 
-5. Process \_ processParsedData
+5. Process `processParsedData`
 
    Spark process
 
